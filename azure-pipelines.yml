@@ -1,0 +1,118 @@
+# Terraform to deploy Azure Resources
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+  
+variables:
+    isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+    location: 'uksouth'
+    terraformVersion: 1.2.7
+    terraformGroup: 'rg-terraform-pr'
+    terraformStorageName: 'stconstososalesterraform'
+    terraformStorageSku: 'Standard_LRS'
+    terraformContainerName: 'infrastructure'
+    tfFilesArtifactName: 'tf-files'
+  
+pool:
+    vmImage: ubuntu-latest
+  
+stages:
+    - stage: 'Installation'
+      jobs:
+          - job: Setup
+            steps:
+             - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+               displayName: 'Install'
+               inputs:
+                 terraformVersion: '1.2.6'
+
+    - stage: 'Init'
+      jobs:
+        - job: init
+          steps:
+            - task: CopyFiles@2
+              inputs:
+                Contents: '**'
+                TargetFolder: '$(Build.ArtifactStagingDirectory)'
+                displayName: 'Copy Artifacts'
+            - task: PublishBuildArtifacts@1
+              inputs: 
+                pathToPublish: '$(Build.ArtifactStagingDirectory)'
+                artifact: "devartifacts"
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform init'
+              inputs:
+                 provider: azurerm
+                 command: init
+                 backendServiceArm: 'PathikRawal'
+                 backendAzureRmResourceGroupName: 'rg-terraform'
+                 backendAzureRmStorageAccountName: 'stconstososalesterraform'
+                 backendAzureRmContainerName: 'infrastructure'
+                 backendAzureRmKey: 'terraform.tfstate'
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform Validate'
+              inputs:
+                provider: 'azurerm'
+                command: validate      
+
+    - stage: 'Validate'
+      jobs:
+        - job: Validate
+          steps:
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform init'
+              inputs:
+                 provider: azurerm
+                 command: init
+                 backendServiceArm: 'PathikRawal'
+                 backendAzureRmResourceGroupName: 'rg-terraform'
+                 backendAzureRmStorageAccountName: 'stconstososalesterraform'
+                 backendAzureRmContainerName: 'infrastructure'
+                 backendAzureRmKey: 'terraform.tfstate'
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform Validate'
+              inputs:
+                provider: 'azurerm'
+                command: validate
+    
+    - stage: 'Plan'
+      jobs:
+          - job: Plan
+            steps:
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform init'
+              inputs:
+                 provider: azurerm
+                 command: init
+                 backendServiceArm: 'PathikRawal'
+                 backendAzureRmResourceGroupName: 'rg-terraform'
+                 backendAzureRmStorageAccountName: 'stconstososalesterraform'
+                 backendAzureRmContainerName: 'infrastructure'
+                 backendAzureRmKey: 'terraform.tfstate'
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform Plan'
+              inputs:
+                 provider: 'azurerm'
+                 command: plan
+                 environmentServiceNameAzureRM: 'PathikRawal'
+                 #commandOptions: -input=false -var="objectid= $(TF_VAR_objectid)"
+
+    - stage: 'Apply'
+      jobs:
+          - job: Apply
+            steps:
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform init'
+              inputs:
+                 provider: azurerm
+                 command: init
+                 backendServiceArm: 'PathikRawal'
+                 backendAzureRmResourceGroupName: 'rg-terraform'
+                 backendAzureRmStorageAccountName: 'stconstososalesterraform'
+                 backendAzureRmContainerName: 'infrastructure'
+                 backendAzureRmKey: 'terraform.tfstate'
+            - task: TerraformTaskV3@3
+              displayName: 'Terraform Apply'
+              inputs:
+                 provider: 'azurerm'
+                 command: apply
+                 environmentServiceNameAzureRM: 'PathikRawal'
